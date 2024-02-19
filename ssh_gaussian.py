@@ -142,7 +142,7 @@ if __name__ == "__main__":
     sy = 10  # size of cell in y direction (perpendicular to waveguide), in um
     pad = 7  # padding between last hole and PML edge, in um
     dpml = 1  # PML thickness, in um
-    N = 15  # number of holes
+    N = 16  # number of holes
 
     # Calculate the size of the cell in the x direction
     if N % 2 == 0:
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     # Wavelength range from 400 nm (0.4 microns) to 1 micron
     # Convert this range to frequency in Meep units (1/λ where λ is in microns)
-    min_wl = 0.4  # in microns
+    min_wl = 0.8  # in microns
     max_wl = 1.0  # in microns
     min_f = 1/max_wl  # Minimum frequency (1/λ)
     max_f = 1/min_wl  # Maximum frequency (1/λ)
