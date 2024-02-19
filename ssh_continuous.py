@@ -3,6 +3,7 @@
 import meep as mp
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.constants import c
 
 def generate_waveguide(N, intra_pair_spacing, inter_pair_spacing, radius):
         # Adjust spacings to include the diameters of the circles
@@ -51,23 +52,27 @@ def waveguide_visualizer(sim, N):
 
 def trans_refl_spectra(frequency, trans, refl, N, comp, freq):
     plt.figure(figsize=(10, 6))
-    plt.plot(frequency, trans, label="Transmission")
-    plt.plot(frequency, refl, label="Reflection")
-    plt.xlabel("Frequency (1/μm)")
+    # plt.plot(frequency*c/(1e-6), trans, label="Transmission")
+    # plt.plot(frequency*c/(1e-6), refl, label="Reflection")
+    plt.plot(trans, label="Transmission")
+    plt.plot(refl, label="Reflection")
+    # plt.eventplot( trans, label="Transmission")
+    # plt.eventplot( refl, label="Reflection")
+    plt.xlabel("Frequency Hz")
     plt.ylabel("Normalized Flux")
     plt.legend()
-    plt.title(f"Transmission and Reflection Spectra at center frequency {freq} Hz")
+    plt.title(f"Transmission and Reflection Spectra N {N} at center frequency {freq} Hz")
     plt.grid(True)
     plt.savefig(f"Spectra_N{N}_C{comp}_f{freq}.png")
 
-def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, df, nfreq, w, comp, N):
+def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, w, comp, N):
     if comp == "z":
         field = mp.Ez
     elif comp == "y":
         field = mp.Ey
 
     # Source
-    source = [mp.Source(mp.ContinuousSource(frequency=fcen, fwidth=df),component=field,center=mp.Vector3(-0.5 * sx + dpml),size=mp.Vector3(0, w, 0))]
+    source = [mp.Source(mp.ContinuousSource(frequency=fcen, end_time=100),component=field,center=mp.Vector3(-0.5 * sx + dpml),size=mp.Vector3(0, w, 0))]
     
     # Normalization run simulation
     norm_sim = mp.Simulation(cell_size=cell,
@@ -80,11 +85,12 @@ def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx,
     tran_fr = mp.FluxRegion(center=mp.Vector3(0.5 * sx - dpml - 0.5), size=mp.Vector3(0, 2*w, 0))
 
     # Add flux monitors
-    norm_refl = norm_sim.add_flux(fcen, df, nfreq, refl_fr)
-    norm_tran = norm_sim.add_flux(fcen, df, nfreq, tran_fr)
+    norm_refl = norm_sim.add_flux(fcen, 0, 1, refl_fr)
+    norm_tran = norm_sim.add_flux(fcen, 0, 1, tran_fr)
 
     waveguide_visualizer(norm_sim, 0)
-    norm_sim.run(until_after_sources=mp.stop_when_fields_decayed(50, field, mp.Vector3(0.5 * sx - dpml - 0.5), 1e-3))
+    #norm_sim.run(until_after_sources=mp.stop_when_fields_decayed(50, field, mp.Vector3(0.5 * sx - dpml - 0.5), 1e-3))
+    norm_sim.run(until=1000)
 
     wave_propagate_plot(cell, norm_sim, comp, 0, fcen)
 
@@ -103,8 +109,8 @@ def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx,
     sim = mp.Simulation(cell_size=cell,boundary_layers=pml_layers,geometry=geometry_holes, sources=source,resolution=resolution)
 
     # Add flux monitors
-    refl = sim.add_flux(fcen, df, nfreq, refl_fr)
-    tran = sim.add_flux(fcen, df, nfreq, tran_fr)
+    refl = sim.add_flux(fcen, 0, 1, refl_fr)
+    tran = sim.add_flux(fcen, 0, 1, tran_fr)
 
     # Load the saved flux data for normalization
     sim.load_minus_flux_data(refl, norm_refl_data)
@@ -112,7 +118,9 @@ def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx,
 
     # Run simulation with holes
     waveguide_visualizer(sim, N)
-    sim.run(until_after_sources=mp.stop_when_fields_decayed(50, field, mp.Vector3(0.5 * sx - dpml - 0.5), 1e-3))
+    #sim.run(until_after_sources=mp.stop_when_fields_decayed(50, field, mp.Vector3(0.5 * sx - dpml - 0.5), 1e-3))
+    sim.run(until=1000)
+    
     
     wave_propagate_plot(cell, sim, comp, N, fcen)
 
@@ -123,7 +131,7 @@ def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx,
     # Normalize the transmission and reflection
     transmission = np.array(transmitted_flux) / norm_incident_flux
     reflection = np.array(reflected_flux) / norm_incident_flux
-    freqs = np.linspace(fcen - df/2, fcen + df/2, nfreq)
+    freqs = fcen
 
     trans_refl_spectra(freqs, transmission, reflection, N, comp, fcen)
 
@@ -168,16 +176,8 @@ if __name__ == "__main__":
     # Convert this range to frequency in Meep units (1/λ where λ is in microns)
     min_wl = 0.4  # in microns
     max_wl = 1.0  # in microns
-    min_f = 1/max_wl  # Minimum frequency (1/λ)
-    max_f = 1/min_wl  # Maximum frequency (1/λ)
 
-    # Center frequency and frequency width
-    fcen = (min_f + max_f) / 2
-    df = max_f - min_f
-
-    # Number of frequency points
-    nfreq = 500
-
-    simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, df, nfreq, w, "z", N)
-
-    simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, df, nfreq, w, "y", N)
+    for wl in np.linspace(min_wl,max_wl,7):
+        fcen = 1/wl
+        simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, w, "z", N)
+        simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx, dpml, fcen, w, "y", N)
