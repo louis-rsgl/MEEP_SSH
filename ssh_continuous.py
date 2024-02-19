@@ -3,7 +3,6 @@
 import meep as mp
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import c
 
 def generate_waveguide(N, intra_pair_spacing, inter_pair_spacing, radius):
         # Adjust spacings to include the diameters of the circles
@@ -52,12 +51,12 @@ def waveguide_visualizer(sim, N):
 
 def trans_refl_spectra(frequency, trans, refl, N, comp, freq):
     plt.figure(figsize=(10, 6))
-    plt.plot(frequency*c/(1e-6), trans, label="Transmission")
-    plt.plot(frequency*c/(1e-6), refl, label="Reflection")
-    plt.xlabel("Frequency Hz")
+    plt.plot(frequency, trans, label="Transmission")
+    plt.plot(frequency, refl, label="Reflection")
+    plt.xlabel("Frequency (1/μm)")
     plt.ylabel("Normalized Flux")
     plt.legend()
-    plt.title(f"Transmission and Reflection Spectra N {N} at center frequency {freq} Hz")
+    plt.title(f"Transmission and Reflection Spectra at center frequency {freq} Hz")
     plt.grid(True)
     plt.savefig(f"Spectra_N{N}_C{comp}_f{freq}.png")
 
@@ -68,7 +67,7 @@ def simulation(cell,pml_layers, geometry_noholes,geometry_holes, resolution, sx,
         field = mp.Ey
 
     # Source
-    source = [mp.Source(mp.GaussianSource(frequency=fcen, fwidth=df),component=field,center=mp.Vector3(-0.5 * sx + dpml),size=mp.Vector3(0, w, 0))]
+    source = [mp.Source(mp.ContinuousSource(frequency=fcen, fwidth=df),component=field,center=mp.Vector3(-0.5 * sx + dpml),size=mp.Vector3(0, w, 0))]
     
     # Normalization run simulation
     norm_sim = mp.Simulation(cell_size=cell,
